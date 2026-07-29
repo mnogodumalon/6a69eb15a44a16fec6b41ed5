@@ -234,7 +234,7 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
   const [runningActionId, setRunningActionId] = useState<string | null>(null);
-  const [threadId, setThreadId] = useState(() => crypto.randomUUID());
+  const [threadId, setThreadId] = useState<string>(() => crypto.randomUUID());
   const [fixingMessageId, setFixingMessageId] = useState<string | null>(null);
   const chatLoadingRef = useRef(false);
   // Id of the assistant bubble the current stream fills — version cards are
@@ -644,7 +644,7 @@ export function ActionsProvider({ children }: { children: ReactNode }) {
             focusChatOnError();
             setMessages(prev => [
               ...prev,
-              { id: crypto.randomUUID(), role: 'assistant', ...execErrorUpdate(action, result.error, result.stdout, undefined, undefined, result.runId) },
+              { id: crypto.randomUUID(), role: 'assistant', ...execErrorUpdate(action, result.error ?? '', result.stdout, undefined, undefined, result.runId) },
             ]);
             return;
           }

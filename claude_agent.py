@@ -108,32 +108,41 @@ Use useState to manage wizard steps, selections, and running totals.
 
 RECORD CREATION & SELECTION — THIS IS THE #1 RULE:
 
-🚨 NEVER build custom inline forms for creating records. NEVER. Not even "simple" ones.
-The pre-generated {Entity}Dialog handles ALL field types, validation, photo scan, applookup fields, \
-and lookup enrichment correctly. A custom inline form will be WRONG.
+🚨 NEVER use the pre-generated {Entity}Dialog inside an intent UI — not as a step, not behind \
+"Neu erstellen". It is the generic CRUD modal (every field, photo scan) and defeats the wizard: \
+the user came here to be guided, not to face the full form. Build a task-tailored mini-form \
+instead — only the 2–4 fields that matter for this step's decision — and call \
+LivingAppsService.create<X>Entry() directly with correctly formatted values (see the API rules \
+below; scripts/check-lookup-keys.mjs catches invented lookup keys before the build).
 
 For EVERY step where the user needs to pick or add a record:
 
 1. SHOW EXISTING RECORDS FIRST — fetch from useDashboardData(), display as a searchable list \
 (use EntitySelectStep or a custom card list). The user picks from what already exists.
 
-2. OFFER "Neu erstellen" BUTTON — a Button below or beside the list that opens {Entity}Dialog. \
-After the dialog closes successfully and fetchAll() refreshes, auto-select the newly created record.
+2. OFFER "Neu erstellen" — a button that reveals YOUR OWN mini-form (inline panel or a small \
+Dialog composed from ui/ primitives). After a successful create and fetchAll(), auto-select \
+the newly created record.
 
 3. CONCRETE EXAMPLE:
 ```tsx
-const [dialogOpen, setDialogOpen] = useState(false);
-// Show existing articles to select from
-<EntitySelectStep items={artikel.map(a => ({...}))} onSelect={handleSelect} />
-<Button variant="outline" onClick={() => setDialogOpen(true)}>
-  <IconPlus size={16} className="mr-2" /> Neuen Artikel anlegen
-</Button>
-<ArtikelDialog open={dialogOpen} onClose={() => setDialogOpen(false)}
-  onSubmit={async (fields) => { await LivingAppsService.createArtikelEntry(fields); await fetchAll(); }} />
+const [showCreate, setShowCreate] = useState(false);
+const [name, setName] = useState('');
+<EntitySelectStep items={artikel.map(a => ({...}))} onSelect={handleSelect}
+  createLabel="Neuen Artikel anlegen" onCreateNew={() => setShowCreate(true)} />
+{showCreate && (
+  <div className="rounded-2xl border p-4 space-y-3">  {/* mini-form: ONLY this step's fields */}
+    <Input value={name} onChange={e => setName(e.target.value)} placeholder="Artikelname" />
+    <Button onClick={async () => {
+      await LivingAppsService.createArtikelEntry({ name });
+      await fetchAll(); setShowCreate(false);          // then auto-select the new record
+    }}>Anlegen</Button>
+  </div>
+)}
 ```
 
-This applies to ALL entities in EVERY step: selecting a group, picking participants, choosing articles, etc. \
-Never replace the dialog with an inline form — not even for "quick add" scenarios.
+This applies to ALL entities in EVERY step. The full CRUD form stays on the CRUD page — \
+fields not relevant to this step can be filled there later.
 
 MANDATORY RULES:
 - BEFORE writing any code, Read src/types/app.ts to learn the EXACT field names for each entity type. \
@@ -142,19 +151,26 @@ Use ONLY these field names when calling LivingAppsService methods. NEVER invent 
 from '@/services/livingAppsService'. Do NOT build custom API calls or service functions.
 - Create the file with Write tool — one shot, no read-back.
 - The file must be a valid React component with a default export.
+- The file MUST START with a /** … */ docblock (above the imports): purpose in one line, \
+the ordered steps, which entities it reads and writes, which shared components it composes. \
+Follow-up agent sessions read this block to find and reuse the flow (e.g. to mirror it as a \
+public page) — a page without it is invisible to them. Example:
+  /**
+   * Neue Buchung — 3-Schritt-Wizard.
+   * Steps: 1) Kurs wählen → 2) Teilnehmer erfassen → 3) Bestätigen & anlegen.
+   * Reads: kurse, teilnehmer. Writes: buchungen (createBuchungenEntry).
+   * Composes: IntentWizardShell, EntitySelectStep.
+   */
 - Import useDashboardData from '@/hooks/useDashboardData' for data access.
 - Import types from '@/types/app', services from '@/services/livingAppsService'.
 - Import enrichment functions from '@/lib/enrich' and enriched types from '@/types/enriched' if needed.
 - NEVER use Bash for file operations — use Read/Write/Edit tools only.
 - Rules of Hooks: ALL hooks MUST be BEFORE any early returns (loading/error).
 - IMPORT HYGIENE: Only import what you use.
-- NEVER use the pre-generated {Entity}Dialog components inside the intent UI. \
-They are the generic CRUD modals (every field, photo-scan, etc.) and break the wizard flow. \
-Each step must have its own inline UI tailored to that step's task — show only the fields relevant \
-for the user's current decision, use the most ergonomic input method (date-range picker, tile-style \
-multi-select with prices, live total card, search-as-you-type). Call LivingAppsService.create<X>Entry() \
-directly on submit with correctly formatted fields. See .claude/skills/intent-ui/SKILL.md section \
-"NEVER use the pre-generated {Entity}Dialog inside an intent UI" for examples.
+- No {Entity}Dialog — see THE #1 RULE above. Each step owns a tailored inline UI with the most \
+ergonomic input method (date-range picker, tile-style multi-select with prices, live total card, \
+search-as-you-type). Full examples: .claude/skills/intent-ui/SKILL.md section \
+"NEVER use the pre-generated {Entity}Dialog inside an intent UI".
 - TOUCH-FRIENDLY: NEVER hide buttons behind hover.
 - MANDATORY FIRST STEP: Before writing any code, Read `.claude/skills/intent-ui/SKILL.md` \
 in full. It is the authoritative source for design patterns AND critical API write rules \
@@ -408,6 +424,18 @@ export const formEnhancements: FormEnhancements = {
     'gesamtpreis': 'applookup(zimmer, tagespreis) * dateDiff(anreise, abreise, days) + applookup(zusatzleistung, preis)',
     // MODUS 2: Inline-Funktion — NUR wenn Formel nicht reicht (Conditionals,
     // Schleifen, Multi-Lookup-Summen, Lookup-Switches). Pure Funktion mit ctx-API.
+    // NUR ZAHLEN: computed berechnet Beträge/Anzahlen/Dauern, NIE ein Datum und
+    // nie einen Text — ein String-Return ist TS2322. Datums-Vorbelegung gehört
+    // in defaults ({ kind: 'todayOffset', days: n }).
+    //   FALSCH: 'faelligkeitsdatum': (_f, ctx) => `${y}-${m}-${d}`
+    //   RICHTIG: defaults: { 'faelligkeitsdatum': { kind: 'todayOffset', days: 30 } }
+    // Eigene Formularfelder IMMER über ctx.num(key) lesen — liefert number
+    // (fehlend/leer → 0). ctx.field(key) ist der Rohwert für String-Vergleiche;
+    // damit zu rechnen bricht den Build.
+    //   FALSCH: const netto = ctx.field('preis') ?? 0; return netto * 0.19;
+    //   RICHTIG: return ctx.num('preis') * 0.19;
+    // ctx.num/ctx.field lesen NUR echte Felder, KEINE anderen computed-Keys
+    // (die liefern 0) — Zwischenwerte in der Funktion selbst berechnen.
     'gesamtpreis_mit_einheit': (fields, ctx) => {
       const basis  = (ctx.applookup('zimmer','tagespreis') ?? 0)
                    * (ctx.dateDiff('anreise','abreise') ?? 0);
@@ -471,15 +499,15 @@ SUBAGENT_TOOLS = ["Read", "Write", "Edit", "MultiEdit", "Bash", "Glob", "Grep"]
 SYSTEM_APPEND_DASHBOARD = (
     "MANDATORY RULES (highest priority):\n"
     "- No design_brief.md — analyze data in 1-2 sentences, then implement directly\n"
-    "- DashboardOverview.tsx: Call Read('src/pages/DashboardOverview.tsx') FIRST, then Write ONCE with complete content. Never read back after writing.\n"
+    "- DashboardOverview.tsx: Call Read('src/pages/DashboardOverview.tsx') FIRST, then Write ONCE with complete content. Never read back after writing. Keep the DashboardSkeleton/DashboardError import (@/components/DashboardStates) and the two early-returns — never re-implement them.\n"
     "- NEVER use Bash for file operations (no cat, echo, heredoc, >, >>). ALWAYS use Read/Write/Edit tools. If a tool fails, retry with the SAME tool — never fall back to Bash.\n"
     "- index.css: NEVER touch — pre-generated design system (font, colors, sidebar). Use existing tokens.\n"
     "- Layout.tsx: APP_TITLE is pre-set to the appgroup name. Do NOT edit unless you need a different title.\n"
     "- CRUD pages/dialogs: NEVER touch — complete with all logic\n"
     "- App.tsx, PageShell.tsx, StatCard.tsx, ConfirmDialog.tsx: NEVER touch\n"
     "- No Read-back after Write/Edit\n"
-    "- No Read of files whose contents are in .scaffold_context\n"
-    "- Read .scaffold_context FIRST to understand all generated files\n"
+    "- No Read of files whose contents are in .scaffold_context or the .scaffold_files_p* parts\n"
+    "- Read .scaffold_context FIRST, then each .scaffold_files_p* part it lists (one Read each) to understand all generated files\n"
     "- useDashboardData.ts, enriched.ts, enrich.ts, formatters.ts, ai.ts, ChatWidget.tsx: NEVER touch — use as-is\n"
     "- src/config/ai-features.ts: MAY edit — set AI_PHOTO_SCAN['Entity'] = true to enable photo scan in dialogs\n"
     "- Rules of Hooks: ALL hooks (useState, useEffect, useMemo, useCallback) MUST be BEFORE any early returns (loading/error). Never place a hook after 'if (loading) return' or 'if (error) return'.\n"
@@ -632,7 +660,7 @@ Starte JETZT mit Schritt 1!"""
     elif build_phase == "dashboard":
         # Phase 1: Identical to actions branch — direct agent, no orchestrator overhead
         query = (
-            "Read .scaffold_context and app_metadata.json. "
+            "Read .scaffold_context (plus the .scaffold_files_p* parts it lists, one Read each) and app_metadata.json. "
             "Analyze data, decide UI paradigm in 1-2 sentences, then implement directly. "
             "Follow .claude/skills/frontend-impl/SKILL.md. "
             "Use existing types and services from src/types/ and src/services/. "
@@ -732,13 +760,13 @@ You MUST clean them up before stopping: \
    - DETAILED step-by-step description: what are the STEPS of the workflow, which entities are touched \
 in each step, what records get created/updated, what live feedback to show between steps
    - Tell it to USE these pre-generated shared components (already available, no need to rebuild):
-     * IntentWizardShell from '@/components/IntentWizardShell' — wizard container with step indicator, \
+     * IntentWizardShell from '@/components/blocks/IntentWizardShell' — wizard container with step indicator, \
 deep-linking (?step=N), loading/error. Props: steps, currentStep, onStepChange, loading, error, children. \
 Each step must provide its own action/navigation buttons — the shell does NOT render back/next buttons.
-     * EntitySelectStep from '@/components/EntitySelectStep' — reusable "pick an item" step with search. \
+     * EntitySelectStep from '@/components/blocks/EntitySelectStep' — reusable "pick an item" step with search. \
 Props: items (id, title, subtitle, status, stats), onSelect
-     * BudgetTracker from '@/components/BudgetTracker' — budget progress bar. Props: budget, booked
-     * StatusBadge from '@/components/StatusBadge' — universal status badge. Props: statusKey, label
+     * BudgetTracker from '@/components/blocks/BudgetTracker' — budget progress bar. Props: budget, booked
+     * StatusBadge from '@/components/blocks/StatusBadge' — universal status badge. Props: statusKey, label
    - Tell it to import types, APP_IDS, LivingAppsService, extractRecordId, createRecordUrl from the scaffold
    - Remind: lookup fields when WRITING use plain string keys, NOT {key, label} objects
    - CRITICAL — do NOT use any pre-generated {Entity}Dialog inside the intent UI. \
@@ -852,13 +880,13 @@ You MUST clean them up before stopping: \
       - DETAILED step-by-step description: what are the STEPS of the workflow, which entities are touched \
 in each step, what records get created/updated, what live feedback to show between steps
       - Tell it to USE these pre-generated shared components (already available, no need to rebuild):
-        * IntentWizardShell from '@/components/IntentWizardShell' — wizard container with step indicator, \
+        * IntentWizardShell from '@/components/blocks/IntentWizardShell' — wizard container with step indicator, \
 deep-linking (?step=N), loading/error. Props: steps, currentStep, onStepChange, loading, error, children. \
 Each step must provide its own action/navigation buttons — the shell does NOT render back/next buttons.
-        * EntitySelectStep from '@/components/EntitySelectStep' — reusable "pick an item" step with search. \
+        * EntitySelectStep from '@/components/blocks/EntitySelectStep' — reusable "pick an item" step with search. \
 Props: items (id, title, subtitle, status, stats), onSelect
-        * BudgetTracker from '@/components/BudgetTracker' — budget progress bar. Props: budget, booked
-        * StatusBadge from '@/components/StatusBadge' — universal status badge. Props: statusKey, label
+        * BudgetTracker from '@/components/blocks/BudgetTracker' — budget progress bar. Props: budget, booked
+        * StatusBadge from '@/components/blocks/StatusBadge' — universal status badge. Props: statusKey, label
       - Tell it to import types, APP_IDS, LivingAppsService, extractRecordId, createRecordUrl from the scaffold
       - Remind: lookup fields when WRITING use plain string keys, NOT {key, label} objects
       - CRITICAL — do NOT use any pre-generated {Entity}Dialog inside the intent UI. \
@@ -905,8 +933,31 @@ CRITICAL: Dispatch ALL subagents in a SINGLE response for maximum parallelism.""
 
         t_last_step = t_agent_total_start
 
+        # Stall watchdog: the SDK retries rate-limited API calls silently, so
+        # a 429-backoff looks like a multi-minute hole in the stream. One
+        # line per 30s of silence makes the wait visible as it happens.
+        last_event = {"t": time.time()}
+
+        async def _stall_watchdog():
+            reported = 0.0
+            while True:
+                await asyncio.sleep(15)
+                silent = time.time() - last_event["t"]
+                if silent >= 30 and silent >= reported + 30:
+                    reported = silent
+                    print(
+                        f"[WAIT] {round(silent)}s ohne Modell-Event "
+                        f"(Rate-Limit-Backoff oder lange Generierung)",
+                        flush=True,
+                    )
+                elif silent < 30:
+                    reported = 0.0
+
+        watchdog = asyncio.create_task(_stall_watchdog())
+
         async for message in client.receive_response():
             now = time.time()
+            last_event["t"] = now
             elapsed = round(now - t_agent_total_start, 1)
             dt = round(now - t_last_step, 1)
             t_last_step = now
@@ -946,8 +997,13 @@ CRITICAL: Dispatch ALL subagents in a SINGLE response for maximum parallelism.""
                     "status": status,
                     "cost": message.total_cost_usd,
                     "session_id": message.session_id,
-                    "duration_s": round(t_agent_total, 1)
+                    "duration_s": round(t_agent_total, 1),
+                    # cache_read vs cache_creation vs input tells whether prompt
+                    # caching carried the resumed history or every turn paid full
+                    "usage": getattr(message, "usage", None)
                 }), flush=True)
+
+        watchdog.cancel()
 
 if __name__ == "__main__":
     import sys

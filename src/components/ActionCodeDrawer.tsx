@@ -235,7 +235,7 @@ export function ActionCodeDrawer() {
   );
 
   const isOld = selectedEntry !== null && selected !== current;
-  const isRunning = runningActionId === action.identifier;
+  const isRunning = action != null && runningActionId === action.identifier;
   const { artifacts, rest } = useMemo(
     () => (run && !run.error ? splitRunOutput(run.stdout) : { artifacts: [], rest: null }),
     [run],
