@@ -30,7 +30,7 @@ const GRUSSNACHRICHT_FIELDS = [
 ];
 
 const ENTITY_TABS = [
-  { key: 'grußnachricht', label: 'Grußnachricht', pascal: 'Grussnachricht' },
+  { key: 'grussnachricht', label: 'Grußnachricht', pascal: 'Grussnachricht' },
 ] as const;
 
 type EntityKey = typeof ENTITY_TABS[number]['key'];
@@ -39,12 +39,12 @@ export default function AdminPage() {
   const data = useDashboardData();
   const { loading, error, fetchAll } = data;
 
-  const [activeTab, setActiveTab] = useState<EntityKey>('grußnachricht');
+  const [activeTab, setActiveTab] = useState<EntityKey>('grussnachricht');
   const [selectedIds, setSelectedIds] = useState<Record<EntityKey, Set<string>>>(() => ({
-    'grußnachricht': new Set(),
+    'grussnachricht': new Set(),
   }));
   const [filters, setFilters] = useState<Record<EntityKey, Record<string, string>>>(() => ({
-    'grußnachricht': {},
+    'grussnachricht': {},
   }));
   const [showFilters, setShowFilters] = useState(false);
   const [dialogState, setDialogState] = useState<{ entity: EntityKey; record: any } | null>(null);
@@ -59,7 +59,7 @@ export default function AdminPage() {
 
   const getRecords = useCallback((entity: EntityKey) => {
     switch (entity) {
-      case 'grußnachricht': return (data as any).grussnachricht as Grussnachricht[] ?? [];
+      case 'grussnachricht': return (data as any).grussnachricht as Grussnachricht[] ?? [];
       default: return [];
     }
   }, [data]);
@@ -82,7 +82,7 @@ export default function AdminPage() {
 
   const getFieldMeta = useCallback((entity: EntityKey) => {
     switch (entity) {
-      case 'grußnachricht': return GRUSSNACHRICHT_FIELDS;
+      case 'grussnachricht': return GRUSSNACHRICHT_FIELDS;
       default: return [];
     }
   }, []);
@@ -177,7 +177,7 @@ export default function AdminPage() {
 
   const getServiceMethods = useCallback((entity: EntityKey) => {
     switch (entity) {
-      case 'grußnachricht': return {
+      case 'grussnachricht': return {
         create: (fields: any) => LivingAppsService.createGrussnachrichtEntry(fields),
         update: (id: string, fields: any) => LivingAppsService.updateGrussnachrichtEntry(id, fields),
         remove: (id: string) => LivingAppsService.deleteGrussnachrichtEntry(id),
@@ -522,22 +522,22 @@ export default function AdminPage() {
         </Table>
       </div>
 
-      {(createEntity === 'grußnachricht' || dialogState?.entity === 'grußnachricht') && (
+      {(createEntity === 'grussnachricht' || dialogState?.entity === 'grussnachricht') && (
         <GrussnachrichtDialog
-          open={createEntity === 'grußnachricht' || dialogState?.entity === 'grußnachricht'}
+          open={createEntity === 'grussnachricht' || dialogState?.entity === 'grussnachricht'}
           onClose={() => { setCreateEntity(null); setDialogState(null); }}
-          onSubmit={dialogState?.entity === 'grußnachricht' ? handleUpdate : (fields: any) => handleCreate('grußnachricht', fields)}
-          defaultValues={dialogState?.entity === 'grußnachricht' ? dialogState.record?.fields : undefined}
+          onSubmit={dialogState?.entity === 'grussnachricht' ? handleUpdate : (fields: any) => handleCreate('grussnachricht', fields)}
+          defaultValues={dialogState?.entity === 'grussnachricht' ? dialogState.record?.fields : undefined}
           enablePhotoScan={AI_PHOTO_SCAN['Grussnachricht']}
           enablePhotoLocation={AI_PHOTO_LOCATION['Grussnachricht']}
         />
       )}
-      {viewState?.entity === 'grußnachricht' && (
+      {viewState?.entity === 'grussnachricht' && (
         <GrussnachrichtViewDialog
-          open={viewState?.entity === 'grußnachricht'}
+          open={viewState?.entity === 'grussnachricht'}
           onClose={() => setViewState(null)}
           record={viewState?.record}
-          onEdit={(r: any) => { setViewState(null); setDialogState({ entity: 'grußnachricht', record: r }); }}
+          onEdit={(r: any) => { setViewState(null); setDialogState({ entity: 'grussnachricht', record: r }); }}
         />
       )}
 

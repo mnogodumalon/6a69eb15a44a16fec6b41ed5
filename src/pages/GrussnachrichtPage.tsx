@@ -143,7 +143,7 @@ export default function GrussnachrichtPage() {
           </TableHeader>
           <TableBody>
             {sortRecords(filtered).map(record => (
-              <TableRow key={record.record_id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={(e) => { if ((e.target as HTMLElement).closest('button, [role="checkbox"]')) return; navigate(`/grußnachricht/${record.record_id}`); }}>
+              <TableRow key={record.record_id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={(e) => { if ((e.target as HTMLElement).closest('button, [role="checkbox"]')) return; navigate(`/grussnachricht/${record.record_id}`); }}>
                 <TableCell className="font-medium">{record.fields.vorname ?? '—'}</TableCell>
                 <TableCell>{record.fields.nachname ?? '—'}</TableCell>
                 <TableCell className="max-w-xs"><span className="truncate block">{record.fields.nachricht ?? '—'}</span></TableCell>

@@ -102,7 +102,11 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     const { repairing, repairDone, repairFailed, repairStatus } = this.state;
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-8">
+      // data-testid: the ONLY reliable signal that a page died. A caught error
+      // never reaches Playwright's `pageerror`, so an automated render check
+      // has to look for this node in the DOM — React #310 took a whole
+      // dashboard down while the build stayed green.
+      <div data-testid="error-boundary-fallback" className="flex flex-col items-center justify-center min-h-screen gap-4 p-8">
         <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center">
           {repairDone
             ? <IconCheck size={22} className="text-green-500" />

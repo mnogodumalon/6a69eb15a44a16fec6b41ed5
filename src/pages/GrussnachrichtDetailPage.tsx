@@ -46,7 +46,7 @@ export default function GrussnachrichtDetailPage() {
     if (!record) return;
     await LivingAppsService.deleteGrussnachrichtEntry(record.record_id);
     setDeleteOpen(false);
-    navigate('/grußnachricht');
+    navigate('/grussnachricht');
   }
 
   if (loading) {
@@ -58,7 +58,7 @@ export default function GrussnachrichtDetailPage() {
       <RecordViewEmpty
         title="Eintrag nicht gefunden"
         action={
-          <Button variant="ghost" onClick={() => navigate('/grußnachricht')}>
+          <Button variant="ghost" onClick={() => navigate('/grussnachricht')}>
             <IconArrowLeft className="h-4 w-4 mr-1.5" />
             Zurück
           </Button>
@@ -69,7 +69,7 @@ export default function GrussnachrichtDetailPage() {
 
   return (
     <RecordView
-      onBack={() => navigate('/grußnachricht')}
+      onBack={() => navigate('/grussnachricht')}
       onEdit={() => setEditing(true)}
       backLabel="Zurück"
       editLabel="Bearbeiten"

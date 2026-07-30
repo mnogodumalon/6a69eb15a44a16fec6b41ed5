@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
-import { IconRefresh, IconHistory, IconLoader, IconChevronDown, IconCheck, IconClock, IconArrowBackUp, IconSparkles, IconMessageCircle, IconGitBranch, IconArrowLeft } from '@tabler/icons-react';
+import { IconRefresh, IconHistory, IconLoader, IconChevronDown, IconCheck, IconClock, IconArrowBackUp, IconSparkles, IconMessageCircle, IconGitBranch, IconArrowLeft, IconFlask } from '@tabler/icons-react';
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useActions } from '@/context/ActionsContext';
 
 const APPGROUP_ID = '6a69eb15a44a16fec6b41ed5';
 const UPDATE_ENDPOINT = '/claude/build/update';
@@ -142,6 +143,9 @@ function ConfirmPrompt({ open, title, description, confirmLabel, onCancel, onCon
 }
 
 export function VersionCheck() {
+  // Entwickler/Beta-Toggles leben im aufklappbaren Versions-Panel statt in
+  // der Nav — normale Nutzer brauchen sie nie, Entwickler suchen sie hier.
+  const { devMode, setDevMode, betaMode, setBetaMode } = useActions();
   const [status, setStatus] = useState<Status>('loading');
   const [deployedVersion, setDeployedVersion] = useState('');
   const [deployedCommit, setDeployedCommit] = useState('');
@@ -539,6 +543,37 @@ export function VersionCheck() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Entwickler-Optionen — nur auf der Übersichtsebene des Panels */}
+          {!selectedBranch && (
+            <div className="border-t border-sidebar-border px-3 py-2 space-y-2">
+              <a
+                href="/claude/static/lab.html"
+                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <IconFlask size={14} className="shrink-0" />
+                <span>Klar Lab</span>
+              </a>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={devMode}
+                  onChange={e => setDevMode(e.target.checked)}
+                  className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <span className="text-xs text-foreground">Entwickler</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={betaMode}
+                  onChange={e => setBetaMode(e.target.checked)}
+                  className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                />
+                <span className="text-xs text-foreground">Beta Features</span>
+              </label>
             </div>
           )}
         </div>

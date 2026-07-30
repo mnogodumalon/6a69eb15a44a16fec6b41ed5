@@ -20,9 +20,21 @@ try {
 const errors = [];
 const warnings = [];
 
+// Quote the offending source lines VERBATIM (untrimmed) in every pattern-based
+// message: the fix is then a direct Edit with that exact string — the agent
+// never has to re-Read the file just to locate a reported line.
+const dashLines = src.split('\n');
+const quoteLines = (re, max = 6) => {
+  const hits = [];
+  for (let i = 0; i < dashLines.length && hits.length < max; i++) {
+    if (re.test(dashLines[i])) hits.push(`    line ${i + 1}: ${dashLines[i]}`);
+  }
+  return hits.length ? '\n' + hits.join('\n') : '';
+};
+
 // 1. UTC day-shift trap
 if (src.includes('toISOString')) {
-  errors.push("toISOString() found — day keys MUST use date-fns format(d, 'yyyy-MM-dd') (toISOString is UTC; the day flips at the wrong hour).");
+  errors.push("toISOString() found — day keys MUST use date-fns format(d, 'yyyy-MM-dd') (toISOString is UTC; the day flips at the wrong hour)." + quoteLines(/toISOString/));
 }
 
 // 2. Page skeleton: DashboardGrid or a written opt-out
@@ -57,7 +69,6 @@ if (/onCardClick|onEventClick|onMarkerClick/.test(src) && !src.includes('<Record
 // Only a parseISO with NO guard on its field anywhere nearby is a real crash
 // risk (the sandbox build has no strictNullChecks → parseISO(undefined) throws
 // at runtime and takes the whole page down).
-const dashLines = src.split('\n');
 const unguardedParseISO = [];
 for (let i = 0; i < dashLines.length; i++) {
   const line = dashLines[i];
@@ -77,7 +88,7 @@ for (let i = 0; i < dashLines.length; i++) {
   unguardedParseISO.push(i + 1);
 }
 for (const n of unguardedParseISO) {
-  errors.push(`Line ${n}: parseISO(x.fields.…) without a guard — one record with a missing date crashes the page. Guard inline (r.fields.X ? … : …), early-return (if (!r.fields.X) return …) before the parseISO, or pre-filter the chain (.filter(r => !!r.fields.X)) and assert with r.fields.X!.`);
+  errors.push(`Line ${n}: parseISO(x.fields.…) without a guard — one record with a missing date crashes the page. Guard inline (r.fields.X ? … : …), early-return (if (!r.fields.X) return …) before the parseISO, or pre-filter the chain (.filter(r => !!r.fields.X)) and assert with r.fields.X!.\n    line ${n}: ${dashLines[n - 1]}`);
 }
 
 // 7. Frozen clock
@@ -87,7 +98,7 @@ if (!src.includes('useClock(')) {
 
 // 8. Filler totals
 if (/(?:title|description)\s*=\s*["'{][^"'}]*[Gg]esamt/.test(src)) {
-  warnings.push("A KPI mentions 'gesamt' — bare totals are filler; every KPI is a clickable filter or a progress toward a limit.");
+  warnings.push("A KPI mentions 'gesamt' — bare totals are filler; every KPI is a clickable filter or a progress toward a limit." + quoteLines(/(?:title|description)\s*=\s*["'{][^"'}]*[Gg]esamt/));
 }
 
 // 9. Aside present (or consciously omitted)
@@ -119,7 +130,7 @@ for (let i = 0; i < dashLines.length; i++) {
   const line = dashLines[i];
   if (!/[\w$]\.(?:[\w$]+)\.localeCompare\(/.test(line)) continue;
   if (/String\(|\?\.|\?\?|&&|\|\|/.test(line)) continue;
-  errors.push(`Line ${i + 1}: unguarded .localeCompare on a possibly-empty field — one record without the value crashes the page. Sort with (a.f ?? '').localeCompare(b.f ?? '') or wrap both sides in String(...).`);
+  errors.push(`Line ${i + 1}: unguarded .localeCompare on a possibly-empty field — one record without the value crashes the page. Sort with (a.f ?? '').localeCompare(b.f ?? '') or wrap both sides in String(...).\n    line ${i + 1}: ${line}`);
 }
 
 // 13. The page header comes FIRST — greeting h1 above the grid, always.
@@ -208,18 +219,17 @@ if (gridIdx >= 0) {
 // text (live finding: customer shown by name, phone unreachable; photo doc
 // present but no path to the image).
 {
-  let from = 0;
-  let overlays = 0, withDetails = 0;
-  while (true) {
-    const p = src.indexOf('<RecordOverlay', from);
-    if (p === -1) break;
-    overlays++;
-    const windowSrc = src.slice(p, p + 2500);
-    if (/<\w+Details\b/.test(windowSrc)) withDetails++;
-    from = p + 14;
-  }
-  if (overlays > 0 && withDetails < overlays && !src.includes('details-opt-out:')) {
-    errors.push(`${overlays - withDetails} of ${overlays} <RecordOverlay> bodies do NOT render the generated <{Entity}Details> block — compose it (record + lists from useDashboardData + onOpenX/onAddX via overlay.push) instead of hand-building fields; a genuinely different body needs a // details-opt-out: <reason> comment.`);
+  // FILE-LEVEL check, deliberately not a lexical window around the shell:
+  // two correct structures beat windowing in live runs — long onEdit/footer
+  // props pushed the Details past a 2500-char cutoff, and a named render
+  // helper (`render={top => renderOverlayContent(top)}`) put them BEFORE the
+  // host element. Gate 19 already enforces ONE overlay shell per page, so
+  // per-overlay precision buys nothing; any <XyzDetails JSX usage in the file
+  // is the overlay body. Imports never match (the pattern requires `<`).
+  const overlays = (src.match(/<RecordOverlay/g) || []).length;
+  const usesDetails = /<\w+Details\b/.test(src);
+  if (overlays > 0 && !usesDetails && !src.includes('details-opt-out:')) {
+    errors.push('The <RecordOverlay> body does NOT render the generated <{Entity}Details> block — compose it (record + lists from useDashboardData + onOpenX/onAddX via overlay.push) instead of hand-building fields; a genuinely different body needs a // details-opt-out: <reason> comment.');
   }
 }
 
@@ -230,6 +240,24 @@ if (gridIdx >= 0) {
   const shells = (src.match(/<RecordOverlay\b/g) || []).length;   // \b excludes RecordOverlayHost
   if (shells >= 2) {
     errors.push(`${shells} <RecordOverlay> shells found — render the WHOLE stack through ONE <RecordOverlayHost overlay={overlay} render={top => switch(top.type){…}}/>; per-type shells replay the entrance animation on every drill (the blink).`);
+  }
+}
+
+// 20. Loading/error surfaces are pre-generated (incl. the self-repair flow) —
+// the overview imports them and keeps the two early-returns; a local rebuild
+// drifts from the repair protocol and re-types ~120 lines every build.
+{
+  if (!/import\s*\{[^}]*\bDashboard(?:Skeleton|Error)\b[^}]*\}\s*from\s*'@\/components\/DashboardStates'/.test(src)) {
+    errors.push("DashboardSkeleton/DashboardError not imported from '@/components/DashboardStates' — they are pre-generated; import them, do not rebuild them.");
+  }
+  if (!src.includes('<DashboardSkeleton')) {
+    errors.push("<DashboardSkeleton/> early-return missing — keep `if (loading) return <DashboardSkeleton />;` before any data access.");
+  }
+  if (!src.includes('<DashboardError')) {
+    errors.push("<DashboardError/> early-return missing — keep `if (error) return <DashboardError error={error} onRetry={fetchAll} />;`.");
+  }
+  if (/(?:function|const)\s+Dashboard(?:Skeleton|Error)\b/.test(src)) {
+    errors.push("Local DashboardSkeleton/DashboardError definition found — these ship in '@/components/DashboardStates'; delete the local copy and import them.");
   }
 }
 

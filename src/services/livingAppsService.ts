@@ -75,6 +75,17 @@ export interface CallApiOptions {
   silent?: boolean;
 }
 
+/** What create* / update* resolve to. Same `record_id` the read helpers
+ *  expose, so the whole family behaves alike — the raw REST answer only
+ *  carries `id`, and code that guessed (e.g. Object.keys(res)[0]) built
+ *  `/records/id` and got a 400 on the next write. */
+export interface MutationResult {
+  record_id: string;
+  id: string;
+  fields: Record<string, any>;
+  [key: string]: any;
+}
+
 async function callApi(method: string, endpoint: string, data?: any, options?: CallApiOptions) {
   const silent = options?.silent === true;
   let response: Response;
@@ -319,20 +330,23 @@ export class LivingAppsService {
   static async getGrussnachricht(): Promise<Grussnachricht[]> {
     const data = await callApi('GET', `/apps/${APP_IDS.GRUSSNACHRICHT}/records`);
     const records = Object.entries(data).map(([id, rec]: [string, any]) => ({
-      record_id: id, ...rec
+      record_id: id, ...rec,
+      createdat: rec.created_at ?? '', updatedat: rec.updated_at ?? null,
     })) as Grussnachricht[];
-    return enrichLookupFields(records, 'grußnachricht');
+    return enrichLookupFields(records, 'grussnachricht');
   }
   static async getGrussnachrichtEntry(id: string): Promise<Grussnachricht | undefined> {
     const data = await callApi('GET', `/apps/${APP_IDS.GRUSSNACHRICHT}/records/${id}`);
-    const record = { record_id: data.id, ...data } as Grussnachricht;
-    return enrichLookupFields([record], 'grußnachricht')[0];
+    const record = { record_id: data.id, ...data, createdat: data.created_at ?? '', updatedat: data.updated_at ?? null } as Grussnachricht;
+    return enrichLookupFields([record], 'grussnachricht')[0];
   }
-  static async createGrussnachrichtEntry(fields: CreateGrussnachricht) {
-    return callApi('POST', `/apps/${APP_IDS.GRUSSNACHRICHT}/records`, { fields: cleanFieldsForApi(fields as any, 'grußnachricht') });
+  static async createGrussnachrichtEntry(fields: CreateGrussnachricht): Promise<MutationResult> {
+    const data = await callApi('POST', `/apps/${APP_IDS.GRUSSNACHRICHT}/records`, { fields: cleanFieldsForApi(fields as any, 'grussnachricht') });
+    return { ...data, record_id: data.id };
   }
-  static async updateGrussnachrichtEntry(id: string, fields: Partial<CreateGrussnachricht>) {
-    return callApi('PATCH', `/apps/${APP_IDS.GRUSSNACHRICHT}/records/${id}`, { fields: cleanFieldsForApi(fields as any, 'grußnachricht') });
+  static async updateGrussnachrichtEntry(id: string, fields: Partial<CreateGrussnachricht>): Promise<MutationResult> {
+    const data = await callApi('PATCH', `/apps/${APP_IDS.GRUSSNACHRICHT}/records/${id}`, { fields: cleanFieldsForApi(fields as any, 'grussnachricht') });
+    return { ...data, record_id: data.id };
   }
   static async deleteGrussnachrichtEntry(id: string) {
     return callApi('DELETE', `/apps/${APP_IDS.GRUSSNACHRICHT}/records/${id}`);

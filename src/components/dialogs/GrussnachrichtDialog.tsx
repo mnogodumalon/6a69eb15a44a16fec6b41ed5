@@ -1,3 +1,17 @@
+/**
+ * GrussnachrichtDialog — pre-generated create/edit dialog for Grussnachricht.
+ *
+ * Props: open, onClose, onSubmit(fields) => Promise<void>, defaultValues?,
+ * recordId? (pass when EDITING — enables the attachments section),
+ * enablePhotoScan?, enablePhotoLocation?.
+ *
+ * defaultValues is SHAPE-TOLERANT and its prop type is the EXPORTED
+ * GrussnachrichtDialogDefaults — NOT the entity field type: lookup fields accept
+ * the bare KEY string (or LookupValue), applookup fields the bare record id
+ * (or record URL); the dialog normalizes. Type prefill STATE with the export:
+ *  ❌ useState<Partial<Grussnachricht['fields']>>({ … })   // LookupValue fields reject string prefills (TS2322)
+ *  ✓ useState<GrussnachrichtDialogDefaults | undefined>(undefined)
+ */
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { Grussnachricht } from '@/types/app';
 import { APP_IDS } from '@/types/app';
@@ -18,6 +32,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { IconAlertCircle, IconCamera, IconChevronDown, IconCircleCheck, IconClipboard, IconFileText, IconLoader2, IconPhotoPlus, IconSparkles, IconUpload, IconX } from '@tabler/icons-react';
 import { fileToDataUri, extractFromInput, extractPhotoMeta, reverseGeocode } from '@/lib/ai';
 
+/** Widened prefill type for GrussnachrichtDialog.defaultValues — see file header. */
+export type GrussnachrichtDialogDefaults = Grussnachricht['fields'];
+
 interface GrussnachrichtDialogProps {
   open: boolean;
   onClose: () => void;
@@ -25,7 +42,7 @@ interface GrussnachrichtDialogProps {
   /** SHAPE-TOLERANT: lookup fields accept the bare key (string) or the
    *  LookupValue object; applookup fields the bare record id or the full
    *  record URL — the dialog normalizes both. */
-  defaultValues?: Grussnachricht['fields'];
+  defaultValues?: GrussnachrichtDialogDefaults;
   /** Record id when editing — enables the attachments section. Omit on create. */
   recordId?: string;
   enablePhotoScan?: boolean;
@@ -155,7 +172,7 @@ export function GrussnachrichtDialog({ open, onClose, onSubmit, defaultValues, r
           (merged as Record<string, unknown>)[key] = val;
         }
       }
-      const clean = cleanFieldsForApi(merged, 'grußnachricht');
+      const clean = cleanFieldsForApi(merged, 'grussnachricht');
       await onSubmit(clean as Grussnachricht['fields']);
       onClose();
     } catch (err) {
@@ -266,7 +283,7 @@ export function GrussnachrichtDialog({ open, onClose, onSubmit, defaultValues, r
         <Label htmlFor="vorname">Vorname <span className="text-destructive" aria-hidden="true">*</span></Label>
         <Input
           id="vorname"
-          placeholder="z. B. Max"
+          placeholder=""
           value={fields.vorname ?? ''}
           onChange={e => setFields(f => ({ ...f, vorname: e.target.value }))}
           required
@@ -281,7 +298,7 @@ export function GrussnachrichtDialog({ open, onClose, onSubmit, defaultValues, r
         <Label htmlFor="nachname">Nachname <span className="text-destructive" aria-hidden="true">*</span></Label>
         <Input
           id="nachname"
-          placeholder="z. B. Müller"
+          placeholder=""
           value={fields.nachname ?? ''}
           onChange={e => setFields(f => ({ ...f, nachname: e.target.value }))}
           required
@@ -296,7 +313,7 @@ export function GrussnachrichtDialog({ open, onClose, onSubmit, defaultValues, r
         <Label htmlFor="nachricht">Nachricht</Label>
         <Textarea
           id="nachricht"
-          placeholder="Glückwünsche, Grüße, Dankeschön..."
+          placeholder=""
           value={fields.nachricht ?? ''}
           onChange={e => setFields(f => ({ ...f, nachricht: e.target.value }))}
           rows={3}

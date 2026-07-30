@@ -1,37 +1,51 @@
-import { IconBolt } from '@tabler/icons-react';
+import { useEffect, useRef } from 'react';
 import { useActions } from '@/context/ActionsContext';
 import { ActionsDrawer } from '@/components/ActionsDrawer';
 
 const LABEL = 'Werkzeuge';
 
+/**
+ * ActionsSidebar — Drawer-Eintrag, der den ActionsDrawer öffnet.
+ *
+ * Rendert eine Ein-Item-<la-nav> im select-Modus (Item ohne url → nur Event,
+ * kein Navigieren). Der Open-State lebt im ActionsContext, damit der
+ * Code-Drawer zur Übersicht zurücknavigieren kann (und Fehler ihn einklappen
+ * können). Solange der ActionsDrawer offen ist, bleibt der Eintrag über die
+ * interne Auswahl der la-nav hervorgehoben; beim Schließen wird data-nav neu
+ * gesetzt (setAttribute feuert auch bei gleichem Wert), was die Hervorhebung
+ * zurücksetzt.
+ */
 export function ActionsSidebar() {
-  // The drawer's open state lives in the context so the code drawer can
-  // navigate back to the overview (and errors can fold it away).
-  const { actions, filesByAction, actionsDrawerOpen, openActionsDrawer, closeActionsDrawer } = useActions();
+  const { actionsDrawerOpen, openActionsDrawer, closeActionsDrawer } = useActions();
+  const navRef = useRef<HTMLElement>(null);
 
-  const unassignedCount = filesByAction['__unassigned__']?.length ?? 0;
-  const total = actions.length + (unassignedCount > 0 ? 1 : 0);
-  // Always visible — an empty list shows the drawer's empty state with the
-  // create-in-chat CTA instead of hiding the entry point entirely.
+  // Immer sichtbar — eine leere Liste zeigt den Empty-State des Drawers mit
+  // der Im-Chat-erstellen-CTA statt den Einstiegspunkt ganz zu verstecken.
+  // Ohne Zähler: schlichter Eintrag im Figma-Muster der Aktionen-Sektion.
+  const itemsJson = JSON.stringify([{ title: LABEL }]);
+
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const handler = () => {
+      openActionsDrawer();
+      // Mobil das Drawer-Overlay einklappen, damit der ActionsDrawer nicht
+      // über dem Vollbild-Nav-Overlay hängt (select-Modus = kein Auto-Collapse).
+      if (window.matchMedia('(max-width: 767.98px)').matches) {
+        el.closest('la-drawer')?.setAttribute('collapsed', '');
+      }
+    };
+    el.addEventListener('nav:select', handler);
+    return () => el.removeEventListener('nav:select', handler);
+  }, [openActionsDrawer]);
+
+  useEffect(() => {
+    if (!actionsDrawerOpen) navRef.current?.setAttribute('data-nav', itemsJson);
+  }, [actionsDrawerOpen, itemsJson]);
 
   return (
     <>
-      <div className="px-3 pt-4">
-        <button
-          type="button"
-          onClick={openActionsDrawer}
-          className="flex items-center gap-2 px-4 py-2 w-full rounded-2xl text-base transition-colors min-w-0 text-sidebar-foreground font-normal hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-        >
-          <IconBolt size={16} className="shrink-0 text-sidebar-foreground/70" />
-          <span className="flex-1 truncate text-left">{LABEL}</span>
-          {total > 0 && (
-            <span className="shrink-0 inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded-full bg-sidebar-accent/60 text-[11px] font-medium text-sidebar-foreground">
-              {total}
-            </span>
-          )}
-        </button>
-      </div>
-
+      <la-nav ref={navRef} mode="select" data-nav={itemsJson} />
       <ActionsDrawer open={actionsDrawerOpen} onClose={closeActionsDrawer} />
     </>
   );

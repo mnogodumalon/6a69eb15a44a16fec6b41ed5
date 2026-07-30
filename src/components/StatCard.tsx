@@ -1,3 +1,27 @@
+/**
+ * StatCard / StatStrip — the two KPI surfaces of the overview.
+ *
+ * ─── API at a glance (exact prop names — NEVER guess) ──────────────────
+ *
+ *  <StatCard      title value description? icon? tone? onClick? active?
+ *                 footer? className?>
+ *      The full card: big value, optional description line, optional footer
+ *      slot. Use it for the board's headline numbers.
+ *  <StatStrip     className? children>
+ *      The slim KPI bar: it takes <StatStripItem>s as children and nothing
+ *      else. Pass it to <DashboardGrid kpis={…}> when the numbers are
+ *      context, not the headline.
+ *  <StatStripItem title value icon? tone? onClick? active?>
+ *      One segment. `value` is string | number (already formatted).
+ *
+ *  tone (both, default 'default'):
+ *      'default' | 'primary' | 'success' | 'warning' | 'destructive'
+ *      Exported as `StatCardTone`. It follows the VALUE'S STATE, never the
+ *      category — see the palette note below.
+ *
+ *  A clickable card/segment FILTERS the surface below it: pair `onClick`
+ *  with `active` and toggle the filter off on the second click.
+ */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 /** Closed state palette — the SAME five tones as the widget family

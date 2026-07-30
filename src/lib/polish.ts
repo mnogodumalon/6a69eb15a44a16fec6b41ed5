@@ -3,7 +3,12 @@
  *
  *   useClock(ms?)          minute-ticking Date — derive ALL today/now values from it,
  *                          never from a Date captured once (frozen "today").
- *                          Day keys: date-fns format(clock, 'yyyy-MM-dd') — never toISOString().
+ *                          EVERY time string from `clock` is LOCAL via date-fns format —
+ *                          toISOString() is banned in the overview (UTC flips the day at
+ *                          the wrong hour; gate-enforced), for datetime values too:
+ *                            ❌ clock.toISOString()
+ *                            ✓ format(clock, 'yyyy-MM-dd')           // day key
+ *                            ✓ format(clock, "yyyy-MM-dd'T'HH:mm")   // datetime
  *   gruss(d)               time-of-day greeting ("Guten Morgen!" / "Guten Tag!" / "Guten Abend!")
  *   namen(xs, max?)        "Anna & Ben +2" — the first names, cleanly shortened
  *   ENTRANCE               staggered-entrance className (motion-safe, ~700ms)

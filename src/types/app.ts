@@ -23,6 +23,12 @@ export interface AttachmentInput {
 
 export interface Grussnachricht {
   record_id: string;
+  /** The API field. */
+  created_at: string;
+  updated_at: string | null;
+  /** Alias of created_at, filled by the read helpers. The API sends
+   *  snake_case only — reading `createdat` off a raw record yields
+   *  undefined, which type-checks and then crashes at runtime. */
   createdat: string;
   updatedat: string | null;
   fields: {
@@ -40,7 +46,7 @@ export const APP_IDS = {
 export const LOOKUP_OPTIONS: Record<string, Record<string, {key: string, label: string}[]>> = {};
 
 export const FIELD_TYPES: Record<string, Record<string, string>> = {
-  'grußnachricht': {
+  'grussnachricht': {
     'vorname': 'string/text',
     'nachname': 'string/text',
     'nachricht': 'string/textarea',
@@ -49,6 +55,10 @@ export const FIELD_TYPES: Record<string, Record<string, string>> = {
 
 export const HUB_TOPOLOGY: Record<string, { field: string; entity: string }[]> = {
 };
+
+// Aliases for the pre-0.0.279 app keys (see 4c).
+LOOKUP_OPTIONS['grußnachricht'] = LOOKUP_OPTIONS['grussnachricht'];
+FIELD_TYPES['grußnachricht'] = FIELD_TYPES['grussnachricht'];
 
 type StripLookup<T> = {
   [K in keyof T]: T[K] extends LookupValue | undefined ? string | LookupValue | undefined

@@ -9,7 +9,16 @@
  * a kanban orders a CATEGORY axis with no time at all. Compose; never
  * reimplement.
  *
- * @version 1.6.0
+ * @version 1.7.0
+ * @since 2026-07-27  (1.7.0: `KanbanColumn.label` is a STRING now, not
+ *                     ReactNode. Columns come from the schema's lookup values
+ *                     (key/label string pairs), and every consumer that read
+ *                     the label back out — undo toasts, aria strings,
+ *                     LookupValue writes — needed a cast under ReactNode. Two
+ *                     independent models tripped over it: the API contradicted
+ *                     the family idiom, so the API moved. Rich column headers
+ *                     stay possible via `renderColumnHeader`; card `title`
+ *                     stays ReactNode.)
  * @since 2026-06-11  (1.6.0: DRAG PROXY — a mini card rides with the pointer
  *                     (see primitives 1.6.0, Bryntum DragHelper pattern).
  *                     1.5.0: PHONE BOARD = SEPARATE COLUMN CARDS — on the
@@ -80,7 +89,9 @@
  *
  *  <KanbanWidget
  *     cards                 KanbanCard[]    — { id: string, column: string, title: ReactNode, subtitle?: ReactNode, tone? }
- *     columns               KanbanColumn[]  — ordered columns { key, label, tone? }; lowercase `columns`.
+ *     columns               KanbanColumn[]  — ordered columns { key, label: string, tone? }; lowercase `columns`.
+ *                                             `label` is a plain STRING (schema lookup label) — reusable in toasts,
+ *                                             aria texts and LookupValue writes; rich headers via renderColumnHeader.
  *                                             Build them from the schema's lookup values:
  *                                             (LOOKUP_OPTIONS['<app>']?.['<statusfeld>'] ?? []).map(o => ({ key: o.key, label: o.label }))
  *                                             Declare EVERY lookup value — never drop one to save width (see
@@ -184,15 +195,14 @@ export type KanbanCard = {
   tone?: KanbanTone;
 };
 
-export type KanbanColumn = { key: string; label: ReactNode; tone?: KanbanTone };
+export type KanbanColumn = { key: string; label: string; tone?: KanbanTone };
 
 /** Cards whose `column` matches no declared column land here (HARD RULE 4). */
 const FALLBACK_KEY = '__ohne_status__';
 
-/** A column's label as a plain string for aria-labels; non-string labels fall
- *  back to the opaque key so the label is never "[object Object]". */
+/** A column's label for aria texts; falls back to the key on an empty label. */
 function columnAriaLabel(c: KanbanColumn): string {
-  return typeof c.label === 'string' ? c.label : c.key;
+  return c.label || c.key;
 }
 
 // ── Drag&Drop — board geometry + commit over the shared FSM core ────────
